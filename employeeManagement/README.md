@@ -1,5 +1,8 @@
 # Employee Management Flask API
 
+Git 
+https://github.com/abhib842/employeeManagement
+
 A Flask-based REST API for managing employee details with MySQL database and connection pooling.
 
 ## Features
@@ -8,7 +11,7 @@ A Flask-based REST API for managing employee details with MySQL database and con
 - ✅ Get employee details by ID
 - ✅ Get all employees
 - ✅ MySQL database with connection pooling
-- ✅ Docker and Docker Compose setup
+- ✅ Docker 
 - ✅ Health check endpoint
 - ✅ Input validation and error handling
 - ✅ CORS support
@@ -32,7 +35,7 @@ A Flask-based REST API for managing employee details with MySQL database and con
 
 2. **Start the application:**
    ```bash
-   docker-compose up --build
+   bash k8s/deploy-minikube.sh
    ```
 
 3. **The application will be available at:**
