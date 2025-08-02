@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: employee-mysql
+  namespace: employee-management
+  labels:
+    app: employee-mysql
+spec:
+  serviceName: employee-mysql-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: employee-mysql
+  template:
+    metadata:
+      labels:
+        app: employee-mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql/mysql-server:8.0
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: root-password
+        - name: MYSQL_DATABASE
+          value: "employee_db"
+        - name: MYSQL_USER
+          value: "employee_user"
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: user-password
+        - name: MYSQL_ROOT_HOST
+          value: "%"
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+        - name: mysql-init
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - mysqladmin
+            - ping
+            - -h
+            - localhost
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - mysqladmin
+            - ping
+            - -h
+            - localhost
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: mysql-init
+        configMap:
+          name: mysql-init-config
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql-data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: standard
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: employee-mysql-service
+  namespace: employee-management
+  labels:
+    app: employee-mysql
+spec:
+  selector:
+    app: employee-mysql
+  ports:
+  - port: 3306
+    targetPort: 3306
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init-config
+  namespace: employee-management
+data:
+  init.sql: |
+    -- Create database if not exists
+    CREATE DATABASE IF NOT EXISTS employee_db;
+    USE employee_db;
+
+    -- Create employees table
+    CREATE TABLE IF NOT EXISTS employees (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        first_name VARCHAR(100) NOT NULL,
+        last_name VARCHAR(100) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        phone VARCHAR(20),
+        department VARCHAR(100),
+        position VARCHAR(100),
+        salary DECIMAL(10, 2),
+        hire_date DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+
+    -- Insert sample employee data
+    INSERT INTO employees (first_name, last_name, email, phone, department, position, salary, hire_date) VALUES
+    ('John', 'Smith', 'john.smith@company.com', '555-0101', 'Engineering', 'Software Engineer', 75000.00, '2023-01-15'),
+    ('Sarah', 'Johnson', 'sarah.johnson@company.com', '555-0102', 'Marketing', 'Marketing Manager', 65000.00, '2022-08-20'),
+    ('Michael', 'Brown', 'michael.brown@company.com', '555-0103', 'Sales', 'Sales Representative', 55000.00, '2023-03-10'),
+    ('Emily', 'Davis', 'emily.davis@company.com', '555-0104', 'Human Resources', 'HR Specialist', 60000.00, '2022-11-05'),
+    ('David', 'Wilson', 'david.wilson@company.com', '555-0105', 'Finance', 'Financial Analyst', 70000.00, '2023-02-28');
+
+    -- Grant permissions to employee_user
+    GRANT ALL PRIVILEGES ON employee_db.* TO 'employee_user'@'%';
+    FLUSH PRIVILEGES; 
